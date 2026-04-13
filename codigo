@@ -1,0 +1,201 @@
+📦 📁 ESTRUTURA FINAL DO PROJETO
+news-voice-ai-pro/
+│
+├── app.py
+├── scraper.py
+├── ai_analysis.py
+├── tts.py
+├── config.py
+├── requirements.txt
+│
+├── templates/
+│   └── index.html
+│
+├── static/
+│   └── audio/
+│
+└── README.md
+🧠 1. config.py
+import os
+
+# Coloque sua API KEY aqui ou use variável de ambiente
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "SUA_API_KEY_AQUI")
+🌐 2. scraper.py
+import requests
+from bs4 import BeautifulSoup
+
+URL = "https://br.investing.com/news/latest-news"
+
+def get_news():
+    headers = {"User-Agent": "Mozilla/5.0"}
+
+    try:
+        response = requests.get(URL, headers=headers)
+        response.raise_for_status()
+    except Exception as e:
+        print("Erro ao acessar o site:", e)
+        return []
+
+    soup = BeautifulSoup(response.text, "html.parser")
+
+    noticias = []
+
+    for item in soup.select("a[data-test='article-title-link']"):
+        titulo = item.get_text(strip=True)
+        if titulo:
+            noticias.append(titulo)
+
+    return noticias[:5]
+🧠 3. ai_analysis.py
+from openai import OpenAI
+from config import OPENAI_API_KEY
+
+client = OpenAI(api_key=OPENAI_API_KEY)
+
+def analyze_news(texto):
+    try:
+        prompt = f"""
+        Você é um analista de mercado financeiro.
+
+        Analise a notícia abaixo e retorne:
+
+        1. Resumo curto (1 frase)
+        2. Sentimento: Positivo, Negativo ou Neutro
+
+        Notícia:
+        {texto}
+        """
+
+        response = client.chat.completions.create(
+            model="gpt-4.1-mini",
+            messages=[{"role": "user", "content": prompt}]
+        )
+
+        return response.choices[0].message.content.strip()
+
+    except Exception as e:
+        print("Erro na IA:", e)
+        return "Erro ao analisar notícia."
+🔊 4. tts.py
+from gtts import gTTS
+import os
+
+AUDIO_FOLDER = "static/audio"
+
+def gerar_audio(texto, filename):
+    if not os.path.exists(AUDIO_FOLDER):
+        os.makedirs(AUDIO_FOLDER)
+
+    path = os.path.join(AUDIO_FOLDER, filename)
+
+    tts = gTTS(text=texto, lang='pt-br')
+    tts.save(path)
+
+    return path
+🚀 5. app.py (CORE DO SISTEMA)
+from flask import Flask, render_template
+from scraper import get_news
+from ai_analysis import analyze_news
+from tts import gerar_audio
+import uuid
+
+app = Flask(__name__)
+
+@app.route("/")
+def index():
+    noticias = get_news()
+
+    dados = []
+
+    for noticia in noticias:
+        analise = analyze_news(noticia)
+
+        filename = f"{uuid.uuid4()}.mp3"
+        audio_path = gerar_audio(analise, filename)
+
+        dados.append({
+            "titulo": noticia,
+            "analise": analise,
+            "audio": audio_path
+        })
+
+    return render_template("index.html", dados=dados)
+
+
+if __name__ == "__main__":
+    app.run(debug=True)
+🎨 6. templates/index.html
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>News Voice AI</title>
+
+    <style>
+        body {
+            font-family: Arial;
+            margin: 40px;
+            background: #0f172a;
+            color: #e2e8f0;
+        }
+
+        .card {
+            background: #1e293b;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 10px;
+        }
+
+        h1 {
+            color: #38bdf8;
+        }
+
+        audio {
+            margin-top: 10px;
+            width: 100%;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>📊 News Voice AI Dashboard</h1>
+
+    {% for item in dados %}
+        <div class="card">
+            <h3>{{ item.titulo }}</h3>
+            <p>{{ item.analise }}</p>
+
+            <audio controls>
+                <source src="{{ item.audio }}" type="audio/mpeg">
+            </audio>
+        </div>
+    {% endfor %}
+
+</body>
+</html>
+📦 7. requirements.txt
+flask
+requests
+beautifulsoup4
+gtts
+openai
+Configuração
+
+No arquivo config.py:
+
+OPENAI_API_KEY = "SUA_API_KEY"
+▶️ Execução
+python app.py
+
+Acesse:
+
+http://127.0.0.1:5000
+💡 Melhorias Futuras
+Integração com APIs de trading
+Alertas automáticos
+Deploy em cloud
+Banco de dados
+WebSocket (tempo real)
+👨‍💻 Autor
+
+Esmailly Pessoa
